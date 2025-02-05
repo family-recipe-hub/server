@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from .serializers import UserRegistrationSerializer, UserProfileSerializer
 
@@ -121,3 +121,41 @@ class UserLoginView(APIView):
             {'error': 'Invalid credentials'},  # Error message for invalid credentials.
             status=status.HTTP_400_BAD_REQUEST,  # HTTP 400 Bad Request status code.
         )
+
+class UserLogoutView(APIView):
+    """
+    A view to handle user logout functionality. 
+    This view invalidates the provided refresh token by blacklisting it,
+    ensuring the token can no longer be used to generate new access tokens.
+
+    Requires the user to be authenticated to access this endpoint.
+    """
+
+    # Only authenticated users can access this view
+    permission_classes=[IsAuthenticated]
+
+    def post(self, request):
+        """
+        Handles the POST request for user logout.
+
+        Expects a JSON payload with a `refresh_token` field.
+        - The provided refresh token is blacklisted to invalidate it.
+        - Returns a 205 status code on successful logout.
+        - Returns a 400 status code if the request is invalid or an error occurs.
+
+        Args:
+            request (Request): The Django REST framework request object containing the refresh token.
+
+        Returns:
+            Response: A Django REST framework response object with an appropriate status code.
+        """
+        try:
+            # Extract the refresh token from the request data.
+            refresh_token = request.data["refresh_token"]
+            # Blacklist the refresh token to invalidate it.
+            token = RefreshToken(refresh_token)
+            # Add the refresh token to the blacklist.
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
