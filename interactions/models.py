@@ -40,10 +40,6 @@ class Playlist(models.Model):
     Name = models.CharField(max_length=100, null=False)
 
 
-class UserPlaylists(models.Model):
-    Playlist = models.ForeignKey(Playlist, null=False, on_delete=models.CASCADE)
-    User = models.ForeignKey(User, null=False, on_delete=models.CASCADE)
-
 class Favorite(models.Model):
     FavoriteID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     Recipe = models.ForeignKey(Recipe, null=False, on_delete=models.CASCADE)
