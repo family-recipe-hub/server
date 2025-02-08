@@ -5,6 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from .serializers import UserRegistrationSerializer, UserProfileSerializer
+from django.core.cache import cache
 
 class UserRegistrationView(APIView):
     """
@@ -49,14 +50,29 @@ class UserRegistrationView(APIView):
             refresh = RefreshToken.for_user(user)
 
             # Return a response with the user's profile data and JWT tokens.
-            return Response(
+            response = Response(
                 {
-                    'user': UserProfileSerializer(user, context={'request': request}).data,
-                    'refresh': str(refresh),  # Refresh token for obtaining new access tokens.
-                    'access': str(refresh.access_token),  # Access token for authentication.
+                    'user': UserProfileSerializer(user).data,
                 },
                 status=status.HTTP_201_CREATED,  # HTTP 201 Created status code.
             )
+        
+            # Set cookies for JWT tokens
+            response.set_cookie(
+                key="access_token",
+                value=str(refresh.access_token),
+                httponly=True,
+                secure=True,
+                samesite="Lax",
+            )
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                secure=True,
+                samesite="Lax",
+            )
+            return response 
 
         # If the data is invalid, return the errors with a 400 Bad Request status code.
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -107,14 +123,30 @@ class UserLoginView(APIView):
             refresh = RefreshToken.for_user(user)
 
             # Return the user's profile data and JWT tokens.
-            return Response(
+            response = Response(
                 {
                     'user': UserProfileSerializer(user).data,  # Serialized user profile data.
-                    'refresh': str(refresh),  # Refresh token for obtaining new access tokens.
-                    'access': str(refresh.access_token),  # Access token for authentication.
                 },
                 status=status.HTTP_200_OK,  # HTTP 200 OK status code.
             )
+        
+            # Set cookies for JWT tokens
+            response.set_cookie(
+                key="access_token",
+                value=str(refresh.access_token),
+                httponly=True,
+                secure=True,
+                samesite="Lax",
+            )
+
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                secure=True,
+                samesite="Lax",
+            )
+            return response
 
         # If authentication fails, return an error message.
         return Response(
@@ -152,10 +184,15 @@ class UserLogoutView(APIView):
         try:
             # Extract the refresh token from the request data.
             refresh_token = request.data["refresh_token"]
-            # Blacklist the refresh token to invalidate it.
-            token = RefreshToken(refresh_token)
-            # Add the refresh token to the blacklist.
-            token.blacklist()
-            return Response(status=status.HTTP_205_RESET_CONTENT)
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                # Blacklist the provided refresh token.
+                token.blacklist()
+            response = Response(status=status.HTTP_205_RESET_CONTENT)
+            # Clear cookies
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
+
         except Exception as e:
             return Response(status=status.HTTP_400_BAD_REQUEST)
