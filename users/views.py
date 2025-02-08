@@ -40,6 +40,7 @@ class UserRegistrationView(APIView):
         """
         # Initialize the serializer with the data from the request.
         serializer = UserRegistrationSerializer(data=request.data)
+        print(request.data)
 
         # Validate the serializer data.
         if serializer.is_valid():
