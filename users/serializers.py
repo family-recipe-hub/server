@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import User, Profile, USER_TYPE_CHOICES, DIETARY_TYPE_CHOICES
+from .validation import EmailValidator
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
   """
@@ -8,7 +10,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
   """
   password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
   confirm_password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-
+  
   class Meta:
     model = User
     fields = ('email', 'username', 'password', 'confirm_password')
@@ -18,10 +20,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     }
 
   def validate(self, data):
+    validator = EmailValidator()
     if data['password'] != data['confirm_password']:
       raise serializers.ValidationError({'password': 'Passwords must match.'})
+    
+    if data['email'] == validator.validate_email(data['email']) :
+      raise serializers.ValidationError({'email': 'Invalid email format. Please enter a valid email address.'})
     return data
-  
+
   def create(self, validated_data):
     del validated_data['confirm_password']
     return User.objects.create_user(**validated_data)
