@@ -6,7 +6,6 @@ import uuid
 
 # Create your models here.
 
-    
 class RecipeComments(models.Model):
     CommentID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     Recipe = models.ForeignKey(Recipe, null=False,  on_delete=models.CASCADE)
