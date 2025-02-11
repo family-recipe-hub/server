@@ -56,7 +56,6 @@ class UserRegistrationView(APIView):
 
             response = Response({
                 'user': UserProfileSerializer(user).data,
-                'message': 'Login successful',
                 'access_token': access_token,
             })
             
