@@ -52,12 +52,20 @@ class UserRegistrationView(APIView):
             # Generate JWT tokens for the newly registered user.
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
 
             response = Response({
                 'user': UserProfileSerializer(user).data,
                 'access_token': access_token,
             })
+
+            response.set_cookie(
+                'refresh_token',
+                str(refresh),
+                httponly=True,
+                samesite='Lax',
+                secure=False,
+                max_age=86400,
+            )
             
             return response
 
