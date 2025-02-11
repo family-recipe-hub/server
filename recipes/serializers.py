@@ -11,8 +11,8 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = serializers.SerializerMethodField()
-    owner = serializers.IntegerField(source="Owner.id", read_only=True)  
+    Ingredients = serializers.SerializerMethodField()
+    Owner = serializers.UUIDField(source="Owner.id", read_only=True)  
 
     class Meta:
         model = Recipe
@@ -28,8 +28,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class RecipeVersionsSerializer(serializers.ModelSerializer):
-    RecipeId = serializers.IntegerField(source="Recipe.RecipeID", read_only=True)
-    Author = serializers.IntegerField(source="Author.id", read_only=True)
+    RecipeID = serializers.UUIDField(source="Recipe.RecipeID", read_only=True)
+    Author = serializers.UUIDField(source="Author.id", read_only=True)
 
     class Meta:
         model = RecipeVersions
@@ -39,8 +39,8 @@ class RecipeVersionsSerializer(serializers.ModelSerializer):
 
 
 class CommentsSerializer(serializers.ModelSerializer):
-    RecipeId = serializers.IntegerField(source="Recipe.RecipeID", read_only=True)
-    UserID = serializers.IntegerField(source="UserID.id", read_only=True)
+    RecipeID = serializers.UUIDField(source="Recipe.RecipeID", read_only=True)
+    UserID = serializers.UUIDField(source="UserID.id", read_only=True)
 
     class Meta:
         model = Comments
@@ -50,17 +50,18 @@ class CommentsSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientsSerializer(serializers.ModelSerializer):
-    RecipeId = serializers.IntegerField(source="Recipe.RecipeID", read_only=True)
-    IngredientName = serializers.CharField(source="IngredientName.Name")
+    RecipeId = serializers.UUIDField(source="Recipe.RecipeID", read_only=True)
+    IngredientName = serializers.UUIDField(source="IngredientName.Name")
     class Meta:
         model = RecipeIngredients
-        fields = ("__all__")
+        fields = ('RecipeId', 'IngredientName', 'Quantity')
+
 
 
 
 class RecipeNutritionSerializer(serializers.ModelSerializer):
-    RecipeId = serializers.IntegerField(source="Recipe.RecipeID", read_only=True)
+    RecipeId = serializers.UUIDField(source="Recipe.RecipeID", read_only=True)
 
     class Meta:
-        model = Ingredient
-        fields = ("__all__")
+        model = RecipeNutrition
+        fields = ('__all__')
