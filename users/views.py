@@ -2,10 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.http import http_date
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
-from .serializers import UserRegistrationSerializer, UserProfileSerializer
-from django.core.cache import cache
+from .serializers import UserRegistrationSerializer, UserProfileSerializer, ProfileSerializer
+from .models import Profile
+from django.shortcuts import get_object_or_404
 
 class UserRegistrationView(APIView):
     """
@@ -49,31 +51,16 @@ class UserRegistrationView(APIView):
 
             # Generate JWT tokens for the newly registered user.
             refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
 
-            # Return a response with the user's profile data and JWT tokens.
-            response = Response(
-                {
-                    'user': UserProfileSerializer(user).data,
-                },
-                status=status.HTTP_201_CREATED,  # HTTP 201 Created status code.
-            )
-        
-            # Set cookies for JWT tokens
-            response.set_cookie(
-                key="access_token",
-                value=str(refresh.access_token),
-                httponly=True,
-                secure=True,
-                samesite="Lax",
-            )
-            response.set_cookie(
-                key="refresh_token",
-                value=str(refresh),
-                httponly=True,
-                secure=True,
-                samesite="Lax",
-            )
-            return response 
+            response = Response({
+                'user': UserProfileSerializer(user).data,
+                'message': 'Login successful',
+                'access_token': access_token,
+            })
+            
+            return response
 
         # If the data is invalid, return the errors with a 400 Bad Request status code.
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -127,25 +114,18 @@ class UserLoginView(APIView):
             response = Response(
                 {
                     'user': UserProfileSerializer(user).data,  # Serialized user profile data.
+                    'access_token': str(refresh.access_token),
                 },
                 status=status.HTTP_200_OK,  # HTTP 200 OK status code.
             )
-        
-            # Set cookies for JWT tokens
-            response.set_cookie(
-                key="access_token",
-                value=str(refresh.access_token),
-                httponly=True,
-                secure=True,
-                samesite="Lax",
-            )
 
             response.set_cookie(
-                key="refresh_token",
-                value=str(refresh),
+                'refresh_token',
+                str(refresh),
                 httponly=True,
-                secure=True,
-                samesite="Lax",
+                samesite='Lax',
+                secure=False,
+                max_age=86400,
             )
             return response
 
@@ -165,35 +145,98 @@ class UserLogoutView(APIView):
     """
 
     # Only authenticated users can access this view
-    permission_classes=[IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """
         Handles the POST request for user logout.
 
-        Expects a JSON payload with a `refresh_token` field.
+        Expects the refresh token in cookies.
         - The provided refresh token is blacklisted to invalidate it.
-        - Returns a 205 status code on successful logout.
+        - Returns a 205 status code on successful logout with a message.
         - Returns a 400 status code if the request is invalid or an error occurs.
 
         Args:
-            request (Request): The Django REST framework request object containing the refresh token.
+            request (Request): The Django REST framework request object.
 
         Returns:
-            Response: A Django REST framework response object with an appropriate status code.
+            Response: A Django REST framework response object with a success or error message.
         """
         try:
-            # Extract the refresh token from the request data.
-            refresh_token = request.data["refresh_token"]
+            refresh_token = request.COOKIES.get('refresh_token')
             if refresh_token:
                 token = RefreshToken(refresh_token)
-                # Blacklist the provided refresh token.
                 token.blacklist()
-            response = Response(status=status.HTTP_205_RESET_CONTENT)
-            # Clear cookies
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
-            return response
+
+                response = Response(
+                    {"message": "Logout successful. Your session has been cleared."}, 
+                    status=status.HTTP_205_RESET_CONTENT
+                )
+                response.delete_cookie('refresh_token')
+                return response
+
+            return Response(
+                {"error": "No refresh token found. You might already be logged out."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": f"An error occurred while logging out: {str(e)}"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class UserProfileView(APIView):
+    """
+    API View for managing user profiles.
+    
+    Supports CRUD operations for authenticated users' profiles:
+    - CREATE: Create a new profile for the authenticated user
+    - READ: Retrieve the authenticated user's profile
+    - UPDATE: Update the authenticated user's profile
+    - DELETE: Delete the authenticated user's profile
+    
+    Endpoint: `/api/profile/`
+    Permissions: Requires authentication
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Create a new profile for the authenticated user."""
+        if hasattr(request.user, 'profile'):
+            return Response(
+                {'error': 'Profile already exists'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        serializer = ProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        """Retrieve the authenticated user's profile."""
+        profile = get_object_or_404(Profile, user=request.user)
+        serializer = ProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request):
+        """Update the authenticated user's profile."""
+        profile = get_object_or_404(Profile, user=request.user)
+        serializer = ProfileSerializer(
+            profile,
+            data=request.data,
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        """Delete the authenticated user's profile."""
+        profile = get_object_or_404(Profile, user=request.user)
+        profile.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

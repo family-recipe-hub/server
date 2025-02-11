@@ -8,28 +8,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     The UserRegistrationSerializer class is used to serialize user registration data.
     It ensures that the user provides an email, username, password, and confirmation of the password.
   """
-  password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-  confirm_password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-  
   class Meta:
     model = User
-    fields = ('email', 'username', 'password', 'confirm_password')
+    fields = ('email', 'username', 'password')
     extra_kwargs = {
       'email': {'required': True},
       'username': {'required': True},
+      'password': {'write_only': True}
     }
 
-  def validate(self, data):
-    validator = EmailValidator()
-    if data['password'] != data['confirm_password']:
-      raise serializers.ValidationError({'password': 'Passwords must match.'})
-    
-    if data['email'] == validator.validate_email(data['email']) :
-      raise serializers.ValidationError({'email': 'Invalid email format. Please enter a valid email address.'})
-    return data
 
   def create(self, validated_data):
-    del validated_data['confirm_password']
     return User.objects.create_user(**validated_data)
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -37,22 +26,20 @@ class ProfileSerializer(serializers.ModelSerializer):
     This serializer is responsible for handling the creation and updating of user profiles.
     It includes fields for personal information, user type, dietary restrictions, and more.
   """
-  user_type_choice = serializers.ChoiceField(choices=USER_TYPE_CHOICES)
-  dietary_restrictions_choice = serializers.ListField(
-    child=serializers.ChoiceField(choices=DIETARY_TYPE_CHOICES),
-    required=False,
-    allow_null=True
-  )
 
   class Meta:
     model = Profile
-    fields = ('first_name', 'last_name', 'phone', 'profile_picture', 'user_type', 'languages', 'country', 'dietary_restrictions')
+    fields = ('first_name', 'last_name', 'phone', 'profile_picture', 'user_type', 'country', 'dietary_restrictions')
     extra_kwargs = {
       'phone': {'required': False},
       'profile_picture': {'required': False},
       'languages': {'required': False},
       'country': {'required': True},
     }
+
+    def validate(self, data):
+  
+      return super().validate(data)
 
     def create(self, validated_data):
       validated_data['user'] = self.context['request'].user
