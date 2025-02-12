@@ -2,31 +2,52 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.contrib.postgres.search import TrigramSimilarity, SearchQuery, SearchVector, SearchRank
-from django.db.models import Q, F
+from django.db.models import Q, F, Case, When, IntegerField, Value
 from recipes.models import Recipe
 from .serializers import RecipeSearchSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import RecipeFilter
 # Create your views here.
 
-SIMILARITY_THRESHOLD = 0.3
+SIMILARITY_THRESHOLD = 0.01
+
 def recipe_search(q, filtered_queryset):
     # A Combination of Fuzzy Search and Full-text Search
     # note: fuzzy search requires pg_trgm extention to be enabled in the postgres db
-    search_vector = SearchVector('Title', 'Description')
-    search_query = SearchQuery(q)
-
+    q_list = q.split(' ')
+   
+    search_vector = SearchVector('Title', 'Description', weight='A')  # Adjust fields as needed
+    search_query_obj = SearchQuery(q)
+    search_rank = SearchRank(search_vector, search_query_obj)
     queryset = filtered_queryset.annotate(
-    similarity=TrigramSimilarity('Title', q),
-    search=search_vector,)
+    similarity_title=TrigramSimilarity('Title', q),similarity_desc=TrigramSimilarity('Description', q),
+    search_vector=search_vector, search_rank=search_rank
+    )
 
-    conditions = Q(similarity__gt=SIMILARITY_THRESHOLD) | Q(search=search_query) | Q(Keywords__icontains=q) | Q(Category__icontains=q)
-    conditions |= Q(Ingredients__Name__icontains=q)
+    conditions = (
+        Q(similarity_title__gt=SIMILARITY_THRESHOLD) | 
+        Q(similarity_desc__gt=SIMILARITY_THRESHOLD) | 
+        Q(Keywords__overlap=q_list) | 
+        Q(Category__icontains=q) | 
+        Q(DietaryInfo__overlap=q_list) | 
+        Q(SeasonalTags__overlap=q_list) | 
+        Q(Difficulty__icontains=q)
+    )
 
-    rank = SearchRank(search_vector, search_query)
-    queryset = queryset.annotate(rank=rank, combined_rank=F('similarity') + F('rank'))
+    rank = Case(
+        When(similarity_title__gt=SIMILARITY_THRESHOLD, then=Value(10)),  # Higher weight for similarity
+        When(similarity_desc__gt=SIMILARITY_THRESHOLD, then=Value(10)),
+        When(Keywords__overlap=q_list, then=Value(6)),  # Lower weight for tag overlap
+        When(Category__icontains=q, then=Value(4)),
+        When(DietaryInfo__overlap=q_list, then=Value(4)),
+        When(SeasonalTags__overlap=q_list, then=Value(4)),
+        When(Difficulty__icontains=q, then=Value(2)),  # Lowest weight for difficulty
+        
+        default=Value(0),
+        output_field=IntegerField(),
+    )
     
-    return queryset.filter(conditions).distinct().order_by('-similarity')
+    return queryset.annotate(rank=rank + search_rank).filter(conditions | Q(search_vector=search_query_obj)).order_by('-rank').distinct() 
 
 
 
