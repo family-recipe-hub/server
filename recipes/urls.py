@@ -4,7 +4,7 @@ from .views import RecipeListCreate, RecipeDetail, IngredientListCreate, Ingredi
 
 urlpatterns = [
     path('api/recipes/', RecipeListCreate.as_view(), name="recipe-list-create"),
-    path('api/recipes/<int:id>/', RecipeDetail.as_view(), name="recipe-detail"),
+    path('api/recipes/<str:id>/', RecipeDetail.as_view(), name="recipe-detail"),
     path('api/ingredients/', IngredientListCreate.as_view(), name="ingredient-list-create"),
-    path('api/ingredients/<int:id>/', IngredientDetail.as_view(), name="ingredient-detail")
+    path('api/ingredients/<str:name>/', IngredientDetail.as_view(), name="ingredient-detail")
 ]

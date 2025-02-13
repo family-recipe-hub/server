@@ -56,7 +56,7 @@ class Recipe(models.Model):
     RecipeID = models.UUIDField(primary_key=True, default=uuid.uuid4, null=False)
     Title = models.CharField(max_length=50,null=False)
     Description = models.TextField(null=False)
-    Ingredients = models.ManyToManyField(Ingredient, related_name="recipes")
+    Ingredients = models.ManyToManyField(Ingredient, null=True)
     PrepSteps = ArrayField(models.JSONField(), blank=True)
     Difficulty = models.CharField(max_length=100, choices=DIFFICULTY_TYPE,null=False)
     Gallery = ArrayField(models.TextField(), blank=True)
@@ -98,11 +98,6 @@ class Comments(models.Model):
     Content = models.TextField(null=False)
     CreatedAt = models.DateTimeField(auto_now=True)
 
-
-class RecipeIngredients(models.Model):
-    RecipeID = models.ForeignKey(Recipe, on_delete=models.CASCADE, null=False)
-    IngredientName = models.ForeignKey(Ingredient, on_delete=models.CASCADE, null=False)
-    Quantity = models.CharField(max_length=100)
 
 class RecipeNutrition(models.Model):
     RecipeID = models.ForeignKey(Recipe, on_delete = models.CASCADE, null=False)
