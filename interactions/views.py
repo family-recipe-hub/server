@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics
 from . import models
 from . import serializer
-from django_rest_framework import status
+from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
