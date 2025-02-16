@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import RecipeComments, RecipeUpdateRequests, Playlist, UserPlaylists, Favorite, Notification
+from .models import RecipeComments, RecipeUpdateRequests, Playlist, Favorite, Notification
 
 
 class CreateRecipeCommentsSerializer(serializers.ModelSerializer):
@@ -45,7 +45,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favorite
         fields = ['FavoriteID', 'Recipe', 'Ingredient', 'SavedAt', 'Playlist']
-        read_only_fields = __all__
+        read_only_fields = '__all__'
 
 
 class CreateNotificationSerializer(serializers.ModelSerializer):
@@ -58,4 +58,3 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['NotificationID', 'User', 'content', 'Read', 'link', 'CreatedAt']
         read_only_fields = ['NotificationID', 'User', 'content', 'link', 'CreatedAt']
-
