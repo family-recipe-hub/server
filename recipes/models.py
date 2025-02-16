@@ -56,7 +56,7 @@ class Recipe(models.Model):
     RecipeID = models.UUIDField(primary_key=True, default=uuid.uuid4, null=False)
     Title = models.CharField(max_length=50,null=False)
     Description = models.TextField(null=False)
-    Ingredients = models.ManyToManyField(Ingredient, null=True)
+    Ingredients = models.ManyToManyField(Ingredient)
     PrepSteps = ArrayField(models.JSONField(), blank=True)
     Difficulty = models.CharField(max_length=100, choices=DIFFICULTY_TYPE,null=False)
     Gallery = ArrayField(models.TextField(), blank=True)
