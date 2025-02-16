@@ -14,7 +14,7 @@ from users.models import User
 class RecipeListCreate(APIView):
 
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         recipe = RecipeSerializer(Recipe.objects.all(), many=True)
@@ -30,7 +30,7 @@ class RecipeListCreate(APIView):
         
 
 class RecipeDetail(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
 
     def get_object(self, pk):
@@ -64,7 +64,7 @@ class RecipeDetail(APIView):
 
 class IngredientListCreate(APIView):
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         ingredient = IngredientSerializer(Ingredient.objects.all(), many=True)
@@ -81,7 +81,7 @@ class IngredientListCreate(APIView):
 
 class IngredientDetail(APIView):
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_object(self, pk):
         try :
@@ -90,9 +90,6 @@ class IngredientDetail(APIView):
             raise Http404
 
     def get(self, request, name):
-        # print(name)
-        # name = name.capitalize()
-        # print(name)
         ingredient = self.get_object(name)
         print(ingredient)
         serializer = IngredientSerializer(ingredient)
