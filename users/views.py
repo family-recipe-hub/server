@@ -125,7 +125,14 @@ class UserLoginView(APIView):
                 },
                 status=status.HTTP_200_OK,  # HTTP 200 OK status code.
             )
-
+            response.set_cookie(
+                'access_token',
+                str(refresh.access_token),
+                httponly=True,
+                samesite='Lax',
+                secure=False,
+                max_age=3600,
+            )
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
@@ -179,6 +186,7 @@ class UserLogoutView(APIView):
                     {"message": "Logout successful. Your session has been cleared."}, 
                     status=status.HTTP_205_RESET_CONTENT
                 )
+                response.delete_cookie('access_token')
                 response.delete_cookie('refresh_token')
                 return response
 
