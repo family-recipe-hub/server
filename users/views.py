@@ -1,13 +1,18 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.utils.http import http_date
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
-from .serializers import UserRegistrationSerializer, UserProfileSerializer, ProfileSerializer
+from .serializers import (
+    UserRegistrationSerializer,
+    UserProfileSerializer,
+    ProfileSerializer,
+)
 from .models import Profile
 from django.shortcuts import get_object_or_404
+
 
 class UserRegistrationView(APIView):
     """
@@ -53,20 +58,22 @@ class UserRegistrationView(APIView):
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
 
-            response = Response({
-                'user': UserProfileSerializer(user).data,
-                'access_token': access_token,
-            })
+            response = Response(
+                {
+                    "user": UserProfileSerializer(user).data,
+                    "access_token": access_token,
+                }
+            )
 
             response.set_cookie(
-                'refresh_token',
+                "refresh_token",
                 str(refresh),
                 httponly=True,
-                samesite='Lax',
+                samesite="Lax",
                 secure=False,
                 max_age=86400,
             )
-            
+
             return response
 
         # If the data is invalid, return the errors with a 400 Bad Request status code.
@@ -107,8 +114,8 @@ class UserLoginView(APIView):
                     - 400 Bad Request: If the provided credentials are invalid.
         """
         # Extract email and password from the request data.
-        email = request.data.get('email')
-        password = request.data.get('password')
+        email = request.data.get("email")
+        password = request.data.get("password")
 
         # Authenticate the user using the provided credentials.
         user = authenticate(request, email=email, password=password)
@@ -120,24 +127,26 @@ class UserLoginView(APIView):
             # Return the user's profile data and JWT tokens.
             response = Response(
                 {
-                    'user': UserProfileSerializer(user).data,  # Serialized user profile data.
-                    'access_token': str(refresh.access_token),
+                    "user": UserProfileSerializer(
+                        user
+                    ).data,  # Serialized user profile data.
+                    "access_token": str(refresh.access_token),
                 },
                 status=status.HTTP_200_OK,  # HTTP 200 OK status code.
             )
             response.set_cookie(
-                'access_token',
+                "access_token",
                 str(refresh.access_token),
                 httponly=True,
-                samesite='Lax',
+                samesite="Lax",
                 secure=False,
                 max_age=3600,
             )
             response.set_cookie(
-                'refresh_token',
+                "refresh_token",
                 str(refresh),
                 httponly=True,
-                samesite='Lax',
+                samesite="Lax",
                 secure=False,
                 max_age=86400,
             )
@@ -145,13 +154,14 @@ class UserLoginView(APIView):
 
         # If authentication fails, return an error message.
         return Response(
-            {'error': 'Invalid credentials'},  # Error message for invalid credentials.
+            {"error": "Invalid credentials"},  # Error message for invalid credentials.
             status=status.HTTP_400_BAD_REQUEST,  # HTTP 400 Bad Request status code.
         )
 
+
 class UserLogoutView(APIView):
     """
-    A view to handle user logout functionality. 
+    A view to handle user logout functionality.
     This view invalidates the provided refresh token by blacklisting it,
     ensuring the token can no longer be used to generate new access tokens.
 
@@ -177,53 +187,54 @@ class UserLogoutView(APIView):
             Response: A Django REST framework response object with a success or error message.
         """
         try:
-            refresh_token = request.COOKIES.get('refresh_token')
+            refresh_token = request.COOKIES.get("refresh_token")
             if refresh_token:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
 
                 response = Response(
-                    {"message": "Logout successful. Your session has been cleared."}, 
-                    status=status.HTTP_205_RESET_CONTENT
+                    {"message": "Logout successful. Your session has been cleared."},
+                    status=status.HTTP_205_RESET_CONTENT,
                 )
-                response.delete_cookie('access_token')
-                response.delete_cookie('refresh_token')
+                response.delete_cookie("access_token")
+                response.delete_cookie("refresh_token")
                 return response
 
             return Response(
-                {"error": "No refresh token found. You might already be logged out."}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "No refresh token found. You might already be logged out."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Exception as e:
             return Response(
-                {"error": f"An error occurred while logging out: {str(e)}"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"An error occurred while logging out: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 class UserProfileView(APIView):
     """
     API View for managing user profiles.
-    
+
     Supports CRUD operations for authenticated users' profiles:
     - CREATE: Create a new profile for the authenticated user
     - READ: Retrieve the authenticated user's profile
     - UPDATE: Update the authenticated user's profile
     - DELETE: Delete the authenticated user's profile
-    
+
     Endpoint: `/api/profile/`
     Permissions: Requires authentication
     """
+
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         """Create a new profile for the authenticated user."""
-        if hasattr(request.user, 'profile'):
+        if hasattr(request.user, "profile"):
             return Response(
-                {'error': 'Profile already exists'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Profile already exists"}, status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         serializer = ProfileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
@@ -239,12 +250,8 @@ class UserProfileView(APIView):
     def put(self, request):
         """Update the authenticated user's profile."""
         profile = get_object_or_404(Profile, user=request.user)
-        serializer = ProfileSerializer(
-            profile,
-            data=request.data,
-            partial=True
-        )
-        
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -255,3 +262,106 @@ class UserProfileView(APIView):
         profile = get_object_or_404(Profile, user=request.user)
         profile.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TokenVerifyView(APIView):
+    """
+    APIendpoint to verify the validity of a refresh token.
+
+    permissions:
+        - Requiresthe user to be authenticated.
+
+    Functionality:
+        - checks if the refresh token is present in the request COOKIES.
+        - verifies the token.
+        - Ensures the token is not blacklisted.
+        - Returns a 200 response if the token is valid.
+    
+    Endpoint: /api/token/verify/
+    """
+    permission_classes = (IsAuthenticated,)
+    
+    def post(self, request):
+        """
+        Handles token verification.
+        """
+        refresh_token = request.COOKIES.get('refresh_token')
+        if not refresh_token:
+            return Response(
+                {"error": "No refresh token found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.check_blacklist()
+        except TokenError:
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"error": "An error occurred while verifying the token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"message": "Token is valid"},
+            status=status.HTTP_200_OK
+        )
+
+
+class RefreshTokenView(APIView):
+    """
+    API endpoint to refresh the access token using the refresh token.
+    
+    permissions:
+        - Requires the user to be authenticated.
+
+    Functionality:
+        - Retrieves the refresh token from cookies.
+        - Validates the refresh token.
+        - Generates a new access token.
+        - Returns the new access token in both the response body and cookies.
+
+    Endpoint: /api/token/refresh/
+    """
+
+    def post(self, request):
+        """
+        Generates a new access token using a valid refresh token.
+        """
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if not refresh_token:
+            return Response(
+                {"error": "No refresh token found"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+
+            response = Response(
+                {"access_token": access_token}, status=status.HTTP_200_OK
+            )
+
+            response.set_cookie(
+                "access_token",
+                access_token,
+                httponly=True,
+                samesite="Lax",
+                secure=False,
+                max_age=3600,
+            )
+
+            return response
+
+        except TokenError:
+            return Response(
+                {"error": "Invalid or expired refresh token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
