@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import http_date
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
@@ -12,6 +13,14 @@ from .serializers import (
 )
 from .models import Profile
 from django.shortcuts import get_object_or_404
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.urls import reverse
+from django.conf import settings
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class UserRegistrationView(APIView):
@@ -47,34 +56,42 @@ class UserRegistrationView(APIView):
         """
         # Initialize the serializer with the data from the request.
         serializer = UserRegistrationSerializer(data=request.data)
-        print(request.data)
 
         # Validate the serializer data.
         if serializer.is_valid():
             # Save the user to the database.
             user = serializer.save()
+            user.is_verified = False
+            user.save()
 
-            # Generate JWT tokens for the newly registered user.
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
+            send_verification_email(request, user)
 
-            response = Response(
-                {
-                    "user": UserProfileSerializer(user).data,
-                    "access_token": access_token,
-                }
+            # # Generate JWT tokens for the newly registered user.
+            # refresh = RefreshToken.for_user(user)
+            # access_token = str(refresh.access_token)
+
+            # response = Response(
+            #     {
+            #         "user": UserProfileSerializer(user).data,
+            #         "access_token": access_token,
+            #     }
+            # )
+
+            # response.set_cookie(
+            #     "refresh_token",
+            #     str(refresh),
+            #     httponly=True,
+            #     samesite="Lax",
+            #     secure=False,
+            #     max_age=86400,
+            # )
+
+            # return response
+
+            return Response(
+                {"message": "User registered successfully. Check your email to verify your account."},
+                status=status.HTTP_201_CREATED
             )
-
-            response.set_cookie(
-                "refresh_token",
-                str(refresh),
-                httponly=True,
-                samesite="Lax",
-                secure=False,
-                max_age=86400,
-            )
-
-            return response
 
         # If the data is invalid, return the errors with a 400 Bad Request status code.
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -121,6 +138,8 @@ class UserLoginView(APIView):
         user = authenticate(request, email=email, password=password)
 
         if user:
+            if not user.is_verified:
+                return Response({"error": "Please verify your email before logging in."}, status=status.HTTP_400_BAD_REQUEST)
             # If authentication is successful, generate JWT tokens.
             refresh = RefreshToken.for_user(user)
 
@@ -365,3 +384,84 @@ class RefreshTokenView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
+def send_verification_email(request, user):
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    verification_url = request.build_absolute_uri(reverse('verify_email', kwargs={'uidb64': uid, 'token': token}))
+
+    subject = 'Verify your email address'
+    message = f'Click the link below to verify your email address:\n{verification_url}'
+
+    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+
+class VerifyEmailView(APIView):
+    """
+    API endpoint to verify a user's email after registration.
+
+    This view handles the verification link sent to the user's email.
+    When the user clicks the link, they are verified, and their account is activated.
+
+    Endpoint: /api/verify-email/<uidb64>/<token>/ (GET)
+
+    Permissions: AllowAny (No authentication required)
+
+    Workflow:
+    1. Extracts `uidb64` (encoded user ID) and `token` from the URL.
+    2. Decodes `uidb64` and retrieves the user.
+    3. Validates the token to confirm authenticity.
+    4. If valid:
+        - Sets `is_verified = True` and `is_active = True` for the user.
+        - Saves the changes.
+        - Returns a success message.
+    5. If invalid, returns an error message.
+
+    """
+
+    permission_classes = (AllowAny,)
+
+    def get(self, request, uidb64, token):
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+
+            if default_token_generator.check_token(user, token):
+                user.is_verified = True
+                user.is_active = True
+                user.save()
+                return Response({"message": "Email verified successfully."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Invalid verification link."}, status=status.HTTP_400_BAD_REQUEST)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({"error": "Invalid verification link."}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResendVerificationEmailView(APIView):
+    """
+    API endpoint to resend the email verification link.
+
+    If a user has registered but hasn't verified their email, they can request
+    a new verification link by providing their email address.
+
+    Endpoint: /api/resend-verification-email/
+    Permissions: AllowAny (No authentication required)
+
+    Workflow:
+    1. Takes the user's email from the request.
+    2. Checks if the user exists in the database.
+    3. If the user is already verified, returns an error message.
+    4. If the user is not verified, sends a new verification email.
+    5. Returns a success message.
+
+    """
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        email = request.data.get('email')
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            if user.is_verified:
+                return Response({"error": "User is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+            send_verification_email(request, user)
+            return Response({"message": "Verification email sent successfully."}, status=status.HTTP_200_OK)
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
