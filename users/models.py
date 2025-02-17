@@ -63,9 +63,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(max_length=100, unique=True)
     username = models.CharField(max_length=100, unique=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
 
     """Replaces default user manager with a custom implementation"""
     objects = CustomUserManager()
