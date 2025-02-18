@@ -29,6 +29,7 @@ class UserRegistrationView(APIView):
 
     # Allow any user (authenticated or not) to access this endpoint.
     permission_classes = (AllowAny,)
+    authentication_classes = []
 
     def post(self, request):
         """
@@ -95,6 +96,7 @@ class UserLoginView(APIView):
 
     # Allow any user (authenticated or not) to access this endpoint.
     permission_classes = (AllowAny,)
+    authentication_classes = []
 
     def post(self, request):
         """
@@ -295,11 +297,16 @@ class TokenVerifyView(APIView):
         try:
             token = RefreshToken(refresh_token)
             token.check_blacklist()
+            
         except TokenError:
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_400_BAD_REQUEST
+            response = Response(
+                {"error": "Invalid or expired refresh token"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
+        
         except Exception as e:
             return Response(
                 {"error": "An error occurred while verifying the token"},
@@ -327,12 +334,15 @@ class RefreshTokenView(APIView):
 
     Endpoint: /api/token/refresh/
     """
+    permission_classes = (AllowAny,)
+    authentication_classes = []
 
     def post(self, request):
         """
         Generates a new access token using a valid refresh token.
         """
-        refresh_token = request.COOKIES.get("refresh_token")
+        refresh_token = request.COOKIES.get("refresh_token") 
+        print(refresh_token)
 
         if not refresh_token:
             return Response(
@@ -344,13 +354,12 @@ class RefreshTokenView(APIView):
             refresh = RefreshToken(refresh_token)
             access_token = str(refresh.access_token)
 
-            response = Response(
-                {"access_token": access_token}, status=status.HTTP_200_OK
+            response = Response(status=status.HTTP_200_OK
             )
 
             response.set_cookie(
                 "access_token",
-                access_token,
+                access_token, 
                 httponly=True,
                 samesite="Lax",
                 secure=False,
@@ -360,8 +369,11 @@ class RefreshTokenView(APIView):
             return response
 
         except TokenError:
-            return Response(
+            response = Response(
                 {"error": "Invalid or expired refresh token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
 
