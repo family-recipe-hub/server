@@ -29,6 +29,7 @@ class UserRegistrationView(APIView):
 
     # Allow any user (authenticated or not) to access this endpoint.
     permission_classes = (AllowAny,)
+    authentication_classes = []
 
     def post(self, request):
         """
@@ -95,6 +96,7 @@ class UserLoginView(APIView):
 
     # Allow any user (authenticated or not) to access this endpoint.
     permission_classes = (AllowAny,)
+    authentication_classes = []
 
     def post(self, request):
         """
@@ -295,11 +297,16 @@ class TokenVerifyView(APIView):
         try:
             token = RefreshToken(refresh_token)
             token.check_blacklist()
+            
         except TokenError:
-            return Response(
-                {"error": "Invalid or expired token"},
-                status=status.HTTP_400_BAD_REQUEST
+            response = Response(
+                {"error": "Invalid or expired refresh token"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
+        
         except Exception as e:
             return Response(
                 {"error": "An error occurred while verifying the token"},
@@ -327,6 +334,8 @@ class RefreshTokenView(APIView):
 
     Endpoint: /api/token/refresh/
     """
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = []
 
     def post(self, request):
         """
@@ -360,8 +369,11 @@ class RefreshTokenView(APIView):
             return response
 
         except TokenError:
-            return Response(
+            response = Response(
                 {"error": "Invalid or expired refresh token"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response
 
