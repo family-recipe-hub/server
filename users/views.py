@@ -334,14 +334,15 @@ class RefreshTokenView(APIView):
 
     Endpoint: /api/token/refresh/
     """
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     authentication_classes = []
 
     def post(self, request):
         """
         Generates a new access token using a valid refresh token.
         """
-        refresh_token = request.COOKIES.get("refresh_token")
+        refresh_token = request.COOKIES.get("refresh_token") 
+        print(refresh_token)
 
         if not refresh_token:
             return Response(
@@ -353,13 +354,12 @@ class RefreshTokenView(APIView):
             refresh = RefreshToken(refresh_token)
             access_token = str(refresh.access_token)
 
-            response = Response(
-                {"access_token": access_token}, status=status.HTTP_200_OK
+            response = Response(status=status.HTTP_200_OK
             )
 
             response.set_cookie(
                 "access_token",
-                access_token,
+                access_token, 
                 httponly=True,
                 samesite="Lax",
                 secure=False,
