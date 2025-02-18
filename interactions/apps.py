@@ -4,12 +4,8 @@ class InteractionsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'interactions'
 
-class CommentConfig(AppConfig):
-
-    name = 'comment'
-    verbose_name = 'Comment'
-
     def ready(self):
         import interactions.signals
+
 
 

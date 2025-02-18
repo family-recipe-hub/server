@@ -5,7 +5,7 @@ from .models import RecipeComments, RecipeUpdateRequests, Playlist, Favorite, No
 class CreateRecipeCommentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipeComments
-        fields = ['Recipe', 'User', 'Content']
+        fields = ['Recipe', 'Content', 'User']
 
 class RecipeCommentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,16 +36,12 @@ class PlaylistSerializer(serializers.ModelSerializer):
         fields = ['PlaylistID', 'Name']
         read_only_fields = ['PlaylistID']
 
-class CreateFavoriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Favorite
-        fields = ['Recipe', 'Ingredient', 'Playlist']
 
 class FavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favorite
-        fields = ['FavoriteID', 'Recipe', 'Ingredient', 'SavedAt', 'Playlist']
-        read_only_fields = '__all__'
+        fields = ['FavoriteID', 'Recipe', 'Ingredient', 'SavedAt']
+        read_only_fields = ['FavoriteID', 'SavedAt']
 
 
 class CreateNotificationSerializer(serializers.ModelSerializer):

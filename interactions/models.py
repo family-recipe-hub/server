@@ -41,18 +41,36 @@ class Playlist(models.Model):
 
 class Favorite(models.Model):
     FavoriteID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    Recipe = models.ForeignKey(Recipe, null=False, on_delete=models.CASCADE)
-    Ingredient = models.ForeignKey(Ingredient, null=True, on_delete=models.SET_NULL)
+    Recipe = models.ForeignKey(Recipe, null=True, blank=True, on_delete=models.CASCADE)
+    Ingredient = models.ForeignKey(Ingredient, null=True, blank=True, on_delete=models.SET_NULL)
     SavedAt = models.DateTimeField(auto_now_add=True, null=False)
     Playlist = models.ForeignKey(Playlist, null=False, on_delete=models.CASCADE)
-    
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(Recipe__isnull=False, Ingredient__isnull=True) |
+                    models.Q(Recipe__isnull=True, Ingredient__isnull=False)
+                ),
+                name='recipe_or_ingredient_not_null'
+            )
+        ]
+
+
 class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('comment', 'Comment'),
+        ('update_request', 'Update Request')
+    ]
     NotificationID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     User = models.ForeignKey(User, null=False, on_delete=models.CASCADE)
     content = models.TextField(null=False)
     Read = models.BooleanField(default=False)
+    NotificationType = models.CharField(max_length=32, null=False, choices=NOTIFICATION_TYPES)
     link = models.URLField(blank=True, null=True)
     CreatedAt = models.DateTimeField(auto_now_add=True)
+    NotificationCount = models.IntegerField(default=1)
 
     def __str__(self):
         return f"Notification for {self.User}"

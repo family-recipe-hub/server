@@ -7,6 +7,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+
 
 # Create your views here.
 
@@ -17,7 +19,7 @@ class CreateRecipeCommentsAPIView(generics.CreateAPIView):
     This view is used to create comments on a recipe.
     The user must be authenticated to create a comment.
 
-    Endpoint: `/api/recipes/<recipe_id>/comments/create/`
+    Endpoint: `/api/comments/create/`
     Method: POST
     Permissions: IsAuthenticated (User must be authenticated)
     """
@@ -29,11 +31,13 @@ class CreateRecipeCommentsAPIView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(User=self.request.user)
 
+
+
 class RecipeCommentsListAPIView(generics.ListAPIView):
     """
     API view for listing recipe comments.
 
-    This view is used to list recipe comments .
+    This view is used to list recipe comments.
     The user must be authenticated to view comments.
 
     Endpoint: `/api/recipes/<recipe_id>/comments/`
@@ -57,14 +61,15 @@ class RecipeCommentsDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
     The user must be authenticated to update and delete a comment.
     The user can only delete their own comments.
 
-    Endpoint: `/api/recipes/<recipe_id>/comments/<comment_id>/`
+    Endpoint: `/api/comments/<comment_id>/`
     Method: DELETE, PUT
     Permissions: IsAuthenticated (User must be authenticated)
     """
     serializer_class = serializer.RecipeCommentSerializer
     queryset = models.RecipeComments.objects.all()
     permission_classes = [IsAuthenticated,]
-    lookup_field = 'CommentID'
+    lookup_url_kwarg = 'comment_id'
+    lookup_field = 'CommentID' 
 
     def perform_destroy(self, instance):
         if instance.User == self.request.user or instance.Recipe.Owner == self.request.user:
@@ -83,7 +88,9 @@ class RecipeCommentsDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
                 {"detail": "You do not have permission to update this comment."},
                 code=status.HTTP_403_FORBIDDEN
             )
+
         
+
 class CreateRecipeUpdateRequestsAPIView(generics.CreateAPIView):
     """
     API view for creating update requests on recipe.
@@ -91,7 +98,7 @@ class CreateRecipeUpdateRequestsAPIView(generics.CreateAPIView):
     This view is used to create update requests on a recipe.
     The user must be authenticated to create an update request.
 
-    Endpoint: `/api/recipes/<recipe_id>/update_requests/create/`
+    Endpoint: `/api/update_requests/create/`
     Method: POST
     Permissions: IsAuthenticated (User must be authenticated)
     """
@@ -100,7 +107,8 @@ class CreateRecipeUpdateRequestsAPIView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated,]
 
     def perform_create(self, serializer):
-        serializer.save(UserRequested=self.request.user)
+        serializer.save(UserRequested=self.request.user) 
+
    
 class RecipeUpdateRequestsListAPIView(generics.ListAPIView):
     """
@@ -118,6 +126,11 @@ class RecipeUpdateRequestsListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated,]
     filter_fields = ['Recipe', 'UserRequested']
 
+    def get_queryset(self):
+        recipe_id = self.kwargs.get('recipe_id')
+        return models.RecipeUpdateRequests.objects.filter(Recipe=recipe_id).all()
+
+
 class RecipeUpdateRequestsDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     API view for updating and deleting update requests on recipe.
@@ -125,7 +138,7 @@ class RecipeUpdateRequestsDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPI
     This view is used to view, update and delete update requests on a recipe.
     The user must be authenticated to view, update and delete an update request.
     
-    Endpoint: `/api/recipes/<recipe_id>/update_requests/<request_id>/`
+    Endpoint: `/api/update_requests/<request_id>/`
     Method: GET, DELETE, PUT
     Permissions: IsAuthenticated (User must be authenticated)
     """
@@ -133,7 +146,7 @@ class RecipeUpdateRequestsDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPI
     serializer_class = serializer.RecipeUpdateRequestSerializer
     queryset = models.RecipeUpdateRequests.objects.all()
     permission_classes = [IsAuthenticated,]
-    # acessing the request by the request id
+    lookup_url_kwarg = 'request_id'
     lookup_field = 'RequestID'
 
     def perform_destroy(self, instance):
@@ -185,6 +198,7 @@ class CreatePlaylistAPIView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(User=self.request.user)
 
+
 class PlaylistListAPIView(generics.ListAPIView):
     """
     API view for listing playlists.
@@ -218,6 +232,7 @@ class PlaylistDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = serializer.PlaylistSerializer
     queryset = models.Playlist.objects.all()
     permission_classes = [IsAuthenticated,]
+    lookup_url_kwarg = 'playlist_id'
     lookup_field = 'PlaylistID'
 
     def perform_destroy(self, instance):
@@ -239,21 +254,26 @@ class PlaylistDestroyUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
             )
 
 
-class CreateFavoriteAPIView(generics.CreateAPIView):
+class FavoriteListCreateAPIView(generics.ListCreateAPIView):
     """
-    API view for creating a favorite.
+    API view for listing and creating favorites.
 
-    This view is used to create a favorite.
-    The user must be authenticated to create a favorite.
+    This view is used to list and create favorites.
+    The user must be authenticated to view and create favorites.
 
-    Endpoint: `/api/playlists/<playlist_id>/favorites/create/`
-    Method: POST
+    Endpoint: `/api/playlists/<playlist_id>/favorites/`
+    Method: GET, POST
     Permissions: IsAuthenticated (User must be authenticated)
     """
-    serializer_class = serializer.CreateFavoriteSerializer
-    queryset = models.Favorite.objects.all()
+    serializer_class = serializer.FavoriteSerializer
     permission_classes = [IsAuthenticated,]
 
+
+    def get_queryset(self):
+        playlist_id = self.kwargs.get('playlist_id')
+        return models.Favorite.objects.filter(Playlist=playlist_id).all()
+    
+    
     def perform_create(self, serializer):
         playlist = models.Playlist.objects.get(PlaylistID=self.kwargs.get('playlist_id'))
         # checking if the user is the owner of the playlist
@@ -265,26 +285,6 @@ class CreateFavoriteAPIView(generics.CreateAPIView):
                 code=status.HTTP_403_FORBIDDEN
             )
 
-class FavoriteListAPIView(generics.ListAPIView):
-    """
-    API view for listing favorites.
-
-    This view is used to list favorites.
-    The user must be authenticated to view favorites.
-
-    Endpoint: `/api/playlists/<playlist_id>/favorites/`
-    Method: GET
-    Permissions: IsAuthenticated (User must be authenticated)
-    """
-    serializer_class = serializer.FavoriteSerializer
-    permission_classes = [IsAuthenticated,]
-
-
-    def get_queryset(self):
-        playlist_id = self.kwargs.get('playlist_id')
-        return models.Favorite.objects.filter(Playlist=playlist_id).all()
-    
-
 class FavoriteDestroyUpdateAPIView(APIView):
     """
     API view for updating and deleting favorites.
@@ -293,10 +293,12 @@ class FavoriteDestroyUpdateAPIView(APIView):
     The user must be authenticated to update and delete a favorite.
     The user can only delete their own favorites.
 
-    Endpoint: `/api/playlists/<playlist_id>/favorites/<favorite_id>/`
+    Endpoint: `/api/favorites/<favorite_id>/`
     Method: GET, DELETE
     Permissions: IsAuthenticated (User must be authenticated)
     """
+    permission_classes = [IsAuthenticated,]
+
     def get(self, request, favorite_id):
         favorite = models.Favorite.objects.select_related('Playlist').get(FavoriteID=favorite_id)
         if favorite.Playlist.User == request.user:
@@ -336,6 +338,7 @@ class NotificationListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return models.Notification.objects.filter(User=self.request.user).all()
     
+    
 class NotificationUpdateAPIView(generics.UpdateAPIView):
     """
     API view for updating notification status.
@@ -348,6 +351,7 @@ class NotificationUpdateAPIView(generics.UpdateAPIView):
     serializer_class = serializer.NotificationSerializer
     queryset = models.Notification.objects.all()
     permission_classes = [IsAuthenticated,]
+    lookup_url_kwarg = 'notification_id'
     lookup_field = 'NotificationID'
 
     def perform_update(self, serializer):
@@ -358,5 +362,4 @@ class NotificationUpdateAPIView(generics.UpdateAPIView):
                 {"detail": "You do not have permission to update this notification."},
                 code=status.HTTP_403_FORBIDDEN
             )
-        
-        
+
