@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'interactions',
     'meal_planning',
     'family',
+    'rating',
 ]
 
 AUTH_USER_MODEL = 'users.User'

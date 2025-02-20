@@ -26,4 +26,5 @@ urlpatterns = [
     path('', include('meal_planning.urls')),
     path('', include('search.urls')),
     path('', include('interactions.urls')),
+    path('',include('rating.urls')),
 ]
