@@ -34,6 +34,9 @@ def recipe_search(q, filtered_queryset):
     similarity_title=TrigramSimilarity('Title', q),similarity_desc=TrigramSimilarity('Description', q),
     search_vector=search_vector, search_rank=search_rank
     )
+    similarity_title=TrigramSimilarity('Title', q),similarity_desc=TrigramSimilarity('Description', q),
+    search_vector=search_vector, search_rank=search_rank
+    )
 
     conditions = (
         Q(similarity_title__gte=SIMILARITY_THRESHOLD) | 
