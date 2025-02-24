@@ -34,9 +34,7 @@ def recipe_search(q, filtered_queryset):
     similarity_title=TrigramSimilarity('Title', q),similarity_desc=TrigramSimilarity('Description', q),
     search_vector=search_vector, search_rank=search_rank
     )
-    similarity_title=TrigramSimilarity('Title', q),similarity_desc=TrigramSimilarity('Description', q),
-    search_vector=search_vector, search_rank=search_rank
-    )
+    
 
     conditions = (
         Q(similarity_title__gte=SIMILARITY_THRESHOLD) | 
@@ -49,18 +47,7 @@ def recipe_search(q, filtered_queryset):
         Q(Ingredients__Name__icontains=q)
     )
 
-    #rank = Case(
-    #    When(similarity_title__gt=SIMILARITY_THRESHOLD, then=Value(5)),  # Higher weight for similarity
-    #    When(similarity_desc__gt=SIMILARITY_THRESHOLD, then=Value(5)),
-    #    When(Keywords__overlap=q_list, then=Value(4)),  # Lower weight for tag overlap
-    #    When(Category__icontains=q, then=Value(4)),
-    #    When(DietaryInfo__overlap=q_list, then=Value(4)),
-    #    When(SeasonalTags__overlap=q_list, then=Value(4)),
-    #    When(Difficulty__icontains=q, then=Value(2)),  # Lowest weight for difficulty
-    #    When(Ingredients__Name__icontains=q, then=Value(5)),
-    #    default=Value(0),
-    #    output_field=FloatField(),
-    #)
+   
 
     rank = (
     Case(
@@ -104,7 +91,6 @@ def recipe_search(q, filtered_queryset):
         output_field=FloatField()
     )
 )
-    print(queryset.annotate(c_rank=rank + search_rank).order_by('-c_rank').values_list('Title', 'c_rank')[:10])
     return queryset.annotate(rank=rank + search_rank).order_by('-rank').filter(rank__gte=RANK_THRESHOLD).distinct()
 
 
